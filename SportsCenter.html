@@ -63,12 +63,14 @@
     .row { grid-template-columns:1fr; }                 /* 폼 한 줄씩 세로로 */
     .stat { grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; }
     .stat .n { font-size:22px; }
-    .card table { display:block; overflow-x:auto; white-space:nowrap; }  /* 표는 각자 가로 스크롤 */
+    table { display:block; overflow-x:auto; white-space:nowrap; }  /* 카드·창 안 표 모두 각자 가로 스크롤 */
     th, td { padding:7px 8px; font-size:13px; }
     .toolbar { gap:6px; }
     .toolbar input, .toolbar select { max-width:100%; }
+    input, select, textarea { font-size:16px; }          /* iOS 입력 시 자동 확대 방지 */
     dialog { width:96vw; }
     .dlg-body { max-height:78vh; overflow:auto; }        /* 긴 폼은 창 안에서 스크롤 */
+    .dlg-foot { flex-wrap:wrap; }
     .btn { padding:9px 13px; }
     .btn.sm { padding:6px 10px; }
   }
