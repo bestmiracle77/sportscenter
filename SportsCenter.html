@@ -1,0 +1,1398 @@
+<meta charset="utf-8">
+<title>스포츠센터 관리</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --line:#e3e6ea; --txt:#222; --sub:#777;
+          --accent:#2563eb; --warn:#e11d48; --ok:#16a34a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 -apple-system,"Segoe UI","Malgun Gothic",sans-serif;
+         background:var(--bg); color:var(--txt); }
+  header { background:var(--card); border-bottom:1px solid var(--line); padding:10px 16px;
+           display:flex; gap:6px; align-items:center; flex-wrap:wrap; position:sticky; top:0; z-index:5; }
+  header b { font-size:17px; margin-right:12px; }
+  nav button { border:0; background:none; padding:8px 12px; border-radius:8px; cursor:pointer;
+               font-size:15px; color:var(--sub); }
+  nav button.on { background:var(--accent); color:#fff; }
+  main { max-width:1000px; margin:16px auto; padding:0 16px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px;
+          padding:16px; margin-bottom:16px; }
+  h2 { margin:0 0 12px; font-size:16px; }
+  table { width:100%; border-collapse:collapse; }
+  th,td { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; font-size:14px; }
+  th { color:var(--sub); font-weight:600; }
+  input,select,textarea { font:inherit; padding:7px 9px; border:1px solid var(--line);
+          border-radius:8px; background:#fff; width:100%; }
+  label { display:block; font-size:13px; color:var(--sub); margin:8px 0 3px; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .btn { background:var(--accent); color:#fff; border:0; padding:8px 14px; border-radius:8px;
+         cursor:pointer; font-size:14px; }
+  .btn.ghost { background:#eef1f5; color:var(--txt); }
+  .btn.danger { background:var(--warn); }
+  .btn.sm { padding:4px 9px; font-size:13px; }
+  .stat { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; }
+  .stat .card { margin:0; text-align:center; }
+  .stat .n { font-size:26px; font-weight:700; }
+  .stat .l { color:var(--sub); font-size:13px; }
+  .tag { font-size:12px; padding:2px 7px; border-radius:20px; }
+  .tag.exp { background:#fde8ec; color:var(--warn); }
+  .tag.soon { background:#fff3d6; color:#b45309; }
+  .tag.ok { background:#e6f6ec; color:var(--ok); }
+  .muted { color:var(--sub); }
+  .toolbar { display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  .toolbar input { max-width:240px; }
+  dialog { border:0; border-radius:14px; padding:0; width:min(480px,92vw); }
+  dialog::backdrop { background:rgba(0,0,0,.35); }
+  .dlg-body { padding:18px; }
+  .dlg-foot { display:flex; justify-content:flex-end; gap:8px; padding:12px 18px;
+              border-top:1px solid var(--line); }
+  .right { text-align:right; }
+  .hidden { display:none; }
+  a.link { color:var(--accent); cursor:pointer; }
+</style>
+
+<header>
+  <b>🏋️ 스포츠센터 관리</b>
+  <nav>
+    <button data-tab="dash" class="on">대시보드</button>
+    <button data-tab="members">회원</button>
+    <button data-tab="lessons">기타수업</button>
+    <button data-tab="pay">결제·매출</button>
+    <button data-tab="bus">차량운행</button>
+    <button data-tab="backup">백업</button>
+  </nav>
+  <button id="syncBtn" onclick="driveClick()" title="구글 드라이브 동기화"
+    style="margin-left:auto; border:1px solid var(--line); background:#fff; color:var(--txt); padding:6px 11px; border-radius:8px; cursor:pointer; font-size:13px">⚪ 로컬 전용</button>
+</header>
+<main id="app"></main>
+
+<!-- 회원 편집 -->
+<dialog id="mDlg"><form method="dialog">
+  <div class="dlg-body">
+    <h2 id="mTitle">회원 등록</h2>
+    <input type="hidden" id="mId">
+    <div style="display:flex; gap:14px; align-items:flex-start; margin-bottom:6px">
+      <div style="flex:0 0 120px; text-align:center">
+        <img id="mPhoto" alt="사진 없음"
+             style="width:120px; height:150px; object-fit:cover; border:1px solid var(--line);
+                    border-radius:8px; background:#f0f2f5; color:var(--sub); font-size:12px">
+        <video id="mCam" autoplay playsinline muted
+             style="display:none; width:120px; height:150px; object-fit:cover; border-radius:8px; background:#000"></video>
+      </div>
+      <div style="flex:1; display:flex; flex-direction:column; gap:6px">
+        <button type="button" class="btn ghost sm" id="mCamBtn">📷 카메라 켜기</button>
+        <button type="button" class="btn sm" id="mShot" style="display:none">📸 촬영</button>
+        <button type="button" class="btn ghost sm" id="mPhotoFileBtn">🖼️ 파일에서 불러오기</button>
+        <button type="button" class="btn ghost sm" id="mPhotoClear">사진 삭제</button>
+        <input type="file" id="mPhotoFile" accept="image/*" class="hidden">
+        <p class="muted" style="font-size:12px; margin:2px 0 0">카메라가 없으면 파일에서 불러오세요.</p>
+      </div>
+    </div>
+    <div class="row">
+      <div><label>이름 *</label><input id="mName" required></div>
+      <div><label>연락처</label><input id="mPhone" placeholder="010-0000-0000"></div>
+    </div>
+    <div class="row">
+      <div><label>주 이용 횟수</label>
+        <select id="mFreq"><option value="2">주 2회</option><option value="3">주 3회</option><option value="5">주 5회</option></select></div>
+      <div><label>등록 기간</label>
+        <select id="mMonths"><option value="1">1개월</option><option value="3">3개월</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>상태</label>
+        <select id="mActive"><option value="1">이용중</option><option value="0">중지/탈퇴</option></select></div>
+      <div><label>시작일</label><input type="date" id="mStart"></div>
+    </div>
+    <div class="row">
+      <div><label>만료일 <span class="muted">(시작일·기간에서 자동)</span></label><input type="date" id="mEnd"></div>
+      <div></div>
+    </div>
+    <div class="row">
+      <div><label>차량 이용</label>
+        <select id="mBus"><option value="0">미이용</option><option value="1">이용</option></select></div>
+      <div><label>노선 (선택)</label><select id="mRoute"></select></div>
+    </div>
+    <div class="row">
+      <div><label>승차 위치</label><input id="mPickup" placeholder="예: A복지관 앞"></div>
+      <div><label>하차 위치</label><input id="mDropoff" placeholder="예: OO아파트 정문"></div>
+    </div>
+    <div class="row">
+      <div><label>승차 시간 <span class="muted">(등원 배차)</span></label><input type="time" id="mBoard"></div>
+      <div><label>하차 시간 <span class="muted">(하원 배차)</span></label><input type="time" id="mDrop"></div>
+    </div>
+    <div class="row">
+      <div><label>수업 시간</label><input id="mClass" placeholder="예: 15:00~16:00 / 오후반"></div>
+      <div></div>
+    </div>
+    <label>집주소</label><input id="mAddr">
+    <div class="row">
+      <div><label>보호자 전화번호</label><input id="mGuardian" placeholder="010-0000-0000"></div>
+      <div><label>기관정보</label><input id="mOrg" placeholder="예: ○○복지관"></div>
+    </div>
+    <label>메모</label><textarea id="mMemo" rows="2"></textarea>
+    <div id="mPaySection" style="border-top:1px solid var(--line); margin-top:12px; padding-top:10px">
+      <div style="display:flex; align-items:center; gap:8px">
+        <b>결제 내역</b><span style="flex:1"></span>
+        <button type="button" class="btn sm" id="mAddPay">+ 이 회원 결제 등록</button>
+      </div>
+      <div id="mPays" style="margin-top:6px"></div>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn danger sm" id="mDel">삭제</button>
+    <span style="flex:1"></span>
+    <button value="cancel" class="btn ghost">취소</button>
+    <button type="button" class="btn" id="mSave">저장</button>
+  </div>
+</form></dialog>
+
+<!-- 결제 등록 -->
+<dialog id="pDlg"><form method="dialog">
+  <div class="dlg-body">
+    <h2>결제 등록</h2>
+    <input type="hidden" id="pId">
+    <label>회원 *</label><select id="pMember" required></select>
+    <label>강의 (추가수업, 선택)</label><select id="pLesson"></select>
+    <div class="row">
+      <div><label>금액(원) *</label><input type="number" id="pAmount" required></div>
+      <div><label>날짜</label><input type="date" id="pDate"></div>
+    </div>
+    <div class="row">
+      <div><label>항목</label><input id="pItem" placeholder="예: 6개월 회원권"></div>
+      <div><label>결제수단</label>
+        <select id="pMethod"><option>카드</option><option>현금</option><option>계좌이체</option><option>기타</option></select></div>
+    </div>
+    <label>메모</label><input id="pMemo">
+    <label style="display:flex; align-items:center; gap:8px; margin-top:10px; cursor:pointer">
+      <input type="checkbox" id="pRenew" style="width:auto"> 이 결제로 회원권 갱신 <span id="pRenewInfo" class="muted"></span></label>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn danger sm" id="pDel">삭제</button>
+    <span style="flex:1"></span>
+    <button value="cancel" class="btn ghost">취소</button>
+    <button type="button" class="btn" id="pSave">저장</button>
+  </div>
+</form></dialog>
+
+<!-- 지출 등록 -->
+<dialog id="eDlg"><form method="dialog">
+  <div class="dlg-body">
+    <h2>지출 등록</h2>
+    <input type="hidden" id="eId">
+    <div class="row">
+      <div><label>분류</label>
+        <select id="eCat"></select></div>
+      <div><label>금액(원) *</label><input type="number" id="eAmount" required></div>
+    </div>
+    <div class="row">
+      <div><label>날짜</label><input type="date" id="eDate"></div>
+      <div><label>내용</label><input id="eMemo" placeholder="예: 8월 전기요금"></div>
+    </div>
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn danger sm" id="eDel">삭제</button>
+    <span style="flex:1"></span>
+    <button value="cancel" class="btn ghost">취소</button>
+    <button type="button" class="btn" id="eSave">저장</button>
+  </div>
+</form></dialog>
+
+<!-- 출석 이력 -->
+<dialog id="aDlg"><form method="dialog">
+  <div class="dlg-body">
+    <h2>출석 이력</h2>
+    <input type="hidden" id="aEnrollId">
+    <p id="aInfo" class="muted" style="margin-top:0"></p>
+    <div class="row">
+      <div><label>출석 날짜</label><input type="date" id="aDate"></div>
+      <div style="display:flex; align-items:flex-end"><button type="button" class="btn" id="aAdd" style="width:100%">＋ 출석 추가</button></div>
+    </div>
+    <div id="aList" style="margin-top:12px"></div>
+  </div>
+  <div class="dlg-foot">
+    <span style="flex:1"></span>
+    <button value="cancel" class="btn ghost">닫기</button>
+  </div>
+</form></dialog>
+
+<!-- 노선 등록 -->
+<dialog id="rDlg"><form method="dialog">
+  <div class="dlg-body">
+    <h2 id="rTitle">노선 등록</h2>
+    <input type="hidden" id="rId">
+    <label>노선 이름 *</label><input id="rName" placeholder="예: A노선(오전)" required>
+    <div class="row">
+      <div><label>호차</label><select id="rVehicle"></select></div>
+      <div><label>운행 시간</label><input type="time" id="rTime"></div>
+    </div>
+    <label>운행 정보(기사 등)</label><input id="rInfo" placeholder="예: 홍길동 기사">
+  </div>
+  <div class="dlg-foot">
+    <button type="button" class="btn danger sm" id="rDel">삭제</button>
+    <span style="flex:1"></span>
+    <button value="cancel" class="btn ghost">취소</button>
+    <button type="button" class="btn" id="rSave">저장</button>
+  </div>
+</form></dialog>
+
+<script>
+// ---- 저장소 (localStorage 단일 JSON) ----
+const KEY = "sportscenter.db.v1";
+const DEFAULTS = { members:[], payments:[], routes:[], expenses:[], fixedCosts:[], seq:1, updatedAt:0,
+  vehicleCount:2, vehicleSeats:12, runMinutes:40,   // 정원·1회 운행 소요시간(지도 거리 대신 가정값)
+  // 요금표: "주횟수_개월" → 원.  아는 값만 채움, 나머지는 백업 탭에서 입력
+  prices:{ "2_1":0, "2_3":400000, "3_1":0, "3_3":0, "5_1":0, "5_3":0 },
+  busFee:60000, // 차량운행비(월). 등록 기간만큼 곱해 청구
+  // 경비율(추계) 설정 — 스포츠·여가 서비스업 예시값. 홈택스에서 본인 업종코드 값 확인 후 수정
+  tax:{ simpleRate:79.0, standardRate:19.0, prevIncome:0 },
+  // 추가수업(강의) — 정규수업 외. 5회/10회 요금은 백업·설정에서 수정
+  lessons:[{name:"웨이크보드",price5:0,price10:0},{name:"인라인",price5:0,price10:0},{name:"프리다이빙",price5:0,price10:0}],
+  // 강의 수강 등록: {회원, 강의, 5/10회, 사용횟수, 결제여부, 요금}
+  lessonEnrolls:[] };
+const EXP_CATS = ["강사비","임대료","공과금","비품","광고","기타"];
+// 업종별 기준수입금액(예술·스포츠·여가 서비스업) — 이 미만이면 단순경비율 적용 (소득령§143)
+const SIMPLE_LIMIT_CONT = 24000000;  // 계속사업자: 직전연도 기준
+const SIMPLE_LIMIT_NEW  = 75000000;  // 신규사업자: 해당연도 기준 (= 복식부기의무 기준)
+const db = load();
+migrate();
+// 구버전 데이터 이관: 단일 강의요금→10회요금, 회원.lessons 배열→수강등록
+function migrate(){
+  let changed=false;
+  (db.lessons||[]).forEach(l=>{ if(l.price!==undefined){ if(l.price5===undefined)l.price5=0; if(l.price10===undefined)l.price10=l.price; delete l.price; changed=true; } });
+  (db.members||[]).forEach(m=>{ if(m.lessons){ m.lessons.forEach(name=>{
+    if(!db.lessonEnrolls.some(e=>e.memberId===m.id&&e.lesson===name))
+      db.lessonEnrolls.push({id:nid(),memberId:m.id,lesson:name,sessions:10,log:[],paid:false,price:0}); });
+    delete m.lessons; changed=true; } });
+  // 출석 횟수(used) → 날짜 로그(log)로 이관 (과거 날짜는 미상)
+  (db.lessonEnrolls||[]).forEach(e=>{ if(e.log===undefined){ e.log=Array(e.used||0).fill(""); delete e.used; changed=true; } });
+  if(changed) save();
+}
+function load(){
+  try { return Object.assign(structuredClone(DEFAULTS), JSON.parse(localStorage[KEY]||"{}")); }
+  catch { return structuredClone(DEFAULTS); }
+}
+// ponytail: 사진을 data-URL로 localStorage에 저장(수백 명까지 충분). 용량 넘치면 IndexedDB로 이전.
+function saveLocal(){
+  try { localStorage[KEY] = JSON.stringify(db); }
+  catch(e){ alert("저장 공간이 부족합니다.\n백업(내보내기) 후 오래된 데이터를 정리하거나 사진 수를 줄여주세요."); }
+}
+function save(){ db.updatedAt = Date.now(); saveLocal(); schedulePush(); }
+
+// ================= 구글 드라이브 동기화 (앱 전용 폴더) =================
+const G_SCOPE="https://www.googleapis.com/auth/drive.appdata";
+const G_FILE="sportscenter_data.json";
+let gapiReady=false, gisReady=false, tokenClient=null, accessToken=null, driveFileId=null, pushTimer=null;
+let syncStatus="off";   // off(로컬)·ready(로그인가능)·syncing·synced·error
+const lsGet = k => { try{ return localStorage[k]||""; }catch(e){ return ""; } };
+const clientId = () => (window.GOOGLE_CLIENT_ID||"") || lsGet("sportscenter.gClientId");
+function gapiLoaded(){ gapi.load("client", async ()=>{
+  try{ await gapi.client.init({discoveryDocs:["https://www.googleapis.com/discovery/v1/apis/drive/v3/rest"]}); gapiReady=true; maybeInitGis(); }catch(e){} }); }
+function gisLoaded(){ gisReady=true; maybeInitGis(); }
+function maybeInitGis(){
+  if(!gapiReady||!gisReady||!clientId()){ updateSyncUI(); return; }
+  try{ tokenClient=google.accounts.oauth2.initTokenClient({client_id:clientId(), scope:G_SCOPE, callback:onToken});
+    syncStatus="ready"; }catch(e){ syncStatus="error"; }
+  updateSyncUI();
+}
+async function onToken(resp){
+  if(resp.error){ syncStatus="error"; updateSyncUI(); return; }
+  accessToken=resp.access_token; gapi.client.setToken(resp);
+  await driveSyncOnLogin();
+}
+function statusLabel(){ return ({off:"⚪ 로컬 전용", ready:"☁ 구글 로그인", syncing:"⏳ 동기화 중…", synced:"✅ 동기화됨", error:"❌ 동기화 오류"})[syncStatus]||"⚪ 로컬"; }
+function updateSyncUI(){
+  const b=document.getElementById("syncBtn"); if(b) b.textContent=statusLabel();
+  const d=document.getElementById("syncDetail"); if(d) d.textContent = clientId()? (accessToken? "로그인됨 · 저장 시 드라이브에 자동 반영":"") : "클라이언트 ID를 저장한 뒤 새로고침하세요.";
+}
+async function driveFind(){
+  const r=await gapi.client.drive.files.list({spaces:"appDataFolder", fields:"files(id,modifiedTime)", q:`name='${G_FILE}'`});
+  const f=r.result.files&&r.result.files[0]; driveFileId=f?f.id:null; return f;
+}
+async function drivePull(){
+  await driveFind(); if(!driveFileId) return null;
+  const r=await gapi.client.drive.files.get({fileId:driveFileId, alt:"media"});
+  return JSON.parse(r.body);
+}
+async function drivePush(){
+  const content=JSON.stringify(db);
+  if(!driveFileId){
+    const meta={name:G_FILE, parents:["appDataFolder"], mimeType:"application/json"}, b="ptmate314159";
+    const body=`--${b}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${b}\r\nContent-Type: application/json\r\n\r\n${content}\r\n--${b}--`;
+    const r=await gapi.client.request({path:"/upload/drive/v3/files", method:"POST", params:{uploadType:"multipart"}, headers:{"Content-Type":`multipart/related; boundary=${b}`}, body});
+    driveFileId=r.result.id;
+  } else {
+    await gapi.client.request({path:`/upload/drive/v3/files/${driveFileId}`, method:"PATCH", params:{uploadType:"media"}, body:content});
+  }
+}
+async function driveSyncOnLogin(){
+  syncStatus="syncing"; updateSyncUI();
+  try{
+    const remote=await drivePull();
+    if(remote && (remote.updatedAt||0) > (db.updatedAt||0)){       // 드라이브가 더 최신 → 받아오기
+      Object.assign(db, structuredClone(DEFAULTS), remote); migrate(); saveLocal(); render();
+    } else { await drivePush(); }                                   // 로컬이 최신 → 올리기
+    syncStatus="synced";
+  }catch(e){ console.error(e); syncStatus="error"; }
+  updateSyncUI();
+}
+function schedulePush(){
+  if(!accessToken) return;                       // 로그인 상태에서만 자동 업로드
+  clearTimeout(pushTimer);
+  pushTimer=setTimeout(async ()=>{ try{ syncStatus="syncing"; updateSyncUI(); await drivePush(); syncStatus="synced"; }catch(e){ syncStatus="error"; } updateSyncUI(); }, 1500);
+}
+function driveSignIn(){
+  if(!clientId()){ alert("먼저 백업·설정에서 구글 클라이언트 ID를 저장하세요."); gotoBackup(); return; }
+  if(!tokenClient){ alert("구글 준비 중입니다(인터넷 연결 필요). 잠시 후 다시 시도하세요."); return; }
+  tokenClient.requestAccessToken({prompt: driveFileId? "" : "consent"});
+}
+async function driveSyncNow(){
+  if(!accessToken){ driveSignIn(); return; }
+  syncStatus="syncing"; updateSyncUI();
+  try{ const remote=await drivePull();
+    if(remote){ Object.assign(db, structuredClone(DEFAULTS), remote); migrate(); saveLocal(); render(); }
+    else await drivePush();
+    syncStatus="synced";
+  }catch(e){ syncStatus="error"; }
+  updateSyncUI();
+}
+function driveClick(){ syncStatus==="off"? (gotoBackup()) : (accessToken? driveSyncNow() : driveSignIn()); }
+function saveClientId(){ localStorage["sportscenter.gClientId"]=document.getElementById("gClientId").value.trim(); location.reload(); }
+function nid(){ return db.seq++; }
+const won = n => (+n||0).toLocaleString("ko-KR")+"원";
+const today = () => new Date().toISOString().slice(0,10);
+const $ = s => document.querySelector(s);
+
+// 만료 상태: 만료일 기준 (없으면 항상 ok)
+function expiry(m){
+  if(!m.end) return {t:"ok",label:"-"};
+  const days = Math.ceil((new Date(m.end) - new Date(today()))/86400000);
+  if(days < 0) return {t:"exp",label:"만료"};
+  if(days <= 30) return {t:"soon",label:`D-${days}`};
+  return {t:"ok",label:new Date(m.end).toLocaleDateString("ko-KR")};
+}
+const memberName = id => (db.members.find(m=>m.id===id)||{}).name || "(삭제된 회원)";
+const typeLabel = m => m.freq ? `주${m.freq}회·${m.months||1}개월` : (m.type||"");
+// 차량 이용 여부(신규는 m.bus, 기존 데이터는 노선 지정으로 판단)
+const busOn = m => m.bus===undefined ? !!m.route : !!m.bus;
+// 회원권 요금 + (차량 이용 시) 차량비×개월
+function memberFee(m){
+  const months = m.months||1;
+  const base = +(db.prices[`${m.freq}_${months}`]||0);
+  const bus = busOn(m) ? (+db.busFee||0)*months : 0;
+  return { base, bus, total:base+bus };
+}
+const payItemLabel = m => typeLabel(m) + (busOn(m) ? " + 차량운행비" : "");
+// 회원 1인의 월 환산 매출 (예상 매출·손익분기용): 회원권료/개월 + (차량 이용 시) 차량비(월)
+function monthlyValue(m){
+  const months=m.months||1;
+  return Math.round((+(db.prices[`${m.freq}_${months}`]||0))/months) + (busOn(m)?(+db.busFee||0):0);
+}
+const sum = (arr,f)=>arr.reduce((s,x)=>s+(+f(x)||0),0);
+const inMonth = (arr, ym)=>arr.filter(x=>(x.date||"").startsWith(ym));
+const fixedTotal = ()=>sum(db.fixedCosts,c=>c.amount);
+// 미납/갱신필요 회원: 이용중인데 결제기록이 아예 없거나(미납), 만료일이 지남(갱신필요)
+function unpaidMembers(){
+  const paidIds = new Set(db.payments.map(p=>p.memberId));
+  return db.members.filter(m=>m.active!=0).map(m=>{
+    if(!paidIds.has(m.id)) return {m, reason:"미납(결제기록 없음)"};
+    if(m.end && new Date(m.end) < new Date(today())) return {m, reason:"만료·갱신 미결제"};
+    return null;
+  }).filter(Boolean);
+}
+function addMonths(dateStr, n){
+  if(!dateStr) return "";
+  const d = new Date(dateStr); const day = d.getDate();
+  d.setMonth(d.getMonth()+ (+n||0));
+  if(d.getDate()<day) d.setDate(0); // 말일 보정
+  return d.toISOString().slice(0,10);
+}
+
+// ---- 라우팅 ----
+let tab = "dash";
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  tab=b.dataset.tab;
+  document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+  render();
+});
+function render(){ ({dash:renderDash,members:renderMembers,lessons:renderLessons,pay:renderPay,bus:renderBus,backup:renderBackup}[tab])(); }
+
+// ---- 대시보드 ----
+function renderDash(){
+  const ym = today().slice(0,7);
+  const monthSales = db.payments.filter(p=>(p.date||"").startsWith(ym)).reduce((s,p)=>s+(+p.amount||0),0);
+  const active = db.members.filter(m=>m.active!=0);
+  const soon = active.filter(m=>["exp","soon"].includes(expiry(m).t));
+  $("#app").innerHTML = `
+  <div class="stat">
+    <div class="card"><div class="n">${active.length}</div><div class="l">이용중 회원</div></div>
+    <div class="card"><div class="n">${won(monthSales)}</div><div class="l">이번 달 매출</div></div>
+    <div class="card"><div class="n">${soon.length}</div><div class="l">만료·임박(30일)</div></div>
+    <div class="card"><div class="n">${db.routes.length}</div><div class="l">운행 노선</div></div>
+  </div>
+  <div class="card">
+    <h2>만료 임박·만료 회원</h2>
+    ${soon.length? table(["이름","연락처","만료","","action"].slice(0,3).concat([""]),
+      soon.sort((a,b)=>(a.end||"")< (b.end||"")?-1:1).map(m=>{
+        const e=expiry(m);
+        return `<tr><td>${m.name}</td><td>${m.phone||""}</td>
+          <td><span class="tag ${e.t}">${e.label}</span></td>
+          <td class="right"><button class="btn ghost sm" onclick="editMember(${m.id})">보기</button></td></tr>`;
+      }).join(""))
+      : `<p class="muted">임박한 회원이 없습니다.</p>`}
+  </div>`;
+}
+function table(head, rows){
+  return `<table><thead><tr>${head.map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${rows}</tbody></table>`;
+}
+
+// ---- 회원 ----
+let mFilter="";
+function renderMembers(){
+  const list = db.members
+    .filter(m=>!mFilter || (m.name+m.phone+typeLabel(m)).toLowerCase().includes(mFilter.toLowerCase()))
+    .sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+  $("#app").innerHTML = `
+  <div class="card">
+    <div class="toolbar">
+      <input id="mSearch" placeholder="이름·연락처 검색" value="${mFilter}">
+      <span style="flex:1"></span>
+      <button class="btn" onclick="editMember()">+ 회원 등록</button>
+    </div>
+    ${table(["이름","연락처","회원권","만료","차량",""],
+      list.map(m=>{
+        const e=expiry(m); const r=db.routes.find(x=>x.id===m.route);
+        const av = m.photo? `<img src="${m.photo}" style="width:32px;height:32px;object-fit:cover;border-radius:50%;vertical-align:middle;margin-right:8px">`
+                          : `<span style="display:inline-block;width:32px;height:32px;border-radius:50%;background:#e3e6ea;vertical-align:middle;margin-right:8px"></span>`;
+        return `<tr>
+          <td>${av}${m.active==0?'<span class="muted">':''}${m.name}${m.active==0?' (중지)</span>':''}</td>
+          <td>${m.phone||""}</td><td>${typeLabel(m)}</td>
+          <td><span class="tag ${e.t}">${e.label}</span></td>
+          <td>${busOn(m)? (r?r.name:'이용') : '<span class="muted">미이용</span>'}</td>
+          <td class="right"><button class="btn ghost sm" onclick="editMember(${m.id})">수정</button></td>
+        </tr>`;
+      }).join("") || `<tr><td colspan="6" class="muted">회원이 없습니다.</td></tr>`)}
+  </div>`;
+  $("#mSearch").oninput = e => { mFilter=e.target.value; const p=e.target.selectionStart; renderMembers(); $("#mSearch").focus(); $("#mSearch").setSelectionRange(p,p); };
+}
+function routeOptions(sel){
+  return `<option value="">미지정</option>`+db.routes.map(r=>`<option value="${r.id}" ${r.id===sel?"selected":""}>${r.name}</option>`).join("");
+}
+window.editMember = function(id){
+  const m = id? db.members.find(x=>x.id===id) : {};
+  $("#mTitle").textContent = id? "회원 수정":"회원 등록";
+  $("#mId").value=id||""; $("#mName").value=m.name||""; $("#mPhone").value=m.phone||"";
+  $("#mFreq").value=String(m.freq||2); $("#mMonths").value=String(m.months||1);
+  $("#mActive").value=m.active==0?"0":"1";
+  $("#mStart").value=m.start||""; $("#mEnd").value=m.end||"";
+  $("#mBus").value=busOn(m)?"1":"0";
+  $("#mRoute").innerHTML=routeOptions(m.route);
+  $("#mPickup").value=m.pickup??m.stop??"";   // 기존 정류장은 승차 위치로 이관
+  $("#mDropoff").value=m.dropoff||"";
+  $("#mBoard").value=m.boardTime??m.arriveTime??""; $("#mDrop").value=m.dropTime??""; $("#mClass").value=m.classTime??m.leaveTime??"";
+  $("#mAddr").value=m.addr||""; $("#mGuardian").value=m.guardian||""; $("#mOrg").value=m.org||"";
+  $("#mMemo").value=m.memo||"";
+  photoData = m.photo||null; setPreview();
+  $("#mDel").classList.toggle("hidden",!id);
+  // 결제 내역 연계: 기존 회원은 내역 표시+등록, 신규는 저장 후 등록 안내
+  if(id){ $("#mPaySection").style.display=""; renderMemberPays(id); $("#mAddPay").onclick=()=>payFor(id); }
+  else { $("#mPaySection").style.display="none"; }
+  $("#mDlg").showModal();
+};
+function renderMemberPays(memberId){
+  const list = db.payments.filter(p=>p.memberId===memberId).sort((a,b)=>a.date<b.date?1:-1);
+  $("#mPays").innerHTML = list.length
+    ? `<table>${list.map(p=>`<tr>
+        <td>${p.date||""}</td><td>${p.item||""}</td>
+        <td class="right">${won(p.amount)}</td>
+        <td class="right"><button class="btn ghost sm" onclick="payEdit(${p.id})">수정</button></td>
+      </tr>`).join("")}</table>`
+    : `<p class="muted" style="margin:4px 0 0">결제 내역이 없습니다. 위 버튼으로 등록하세요.</p>`;
+}
+// 회원 창에서 결제 수정 열기 (회원 창은 아래에 그대로 둠)
+window.payEdit = function(id){ editPay(id); };
+
+// ---- 사진(카메라/파일) ----
+let photoData=null, camStream=null;
+function setPreview(){
+  const p=$("#mPhoto");
+  if(photoData) p.src=photoData; else p.removeAttribute("src");
+}
+async function toggleCam(){
+  if(camStream){ stopCam(); return; }
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}});
+    const v=$("#mCam"); v.srcObject=camStream;
+    v.style.display="block"; $("#mPhoto").style.display="none";
+    $("#mShot").style.display=""; $("#mCamBtn").textContent="카메라 끄기";
+  }catch(e){ alert("카메라를 사용할 수 없습니다.\n"+e.message+"\n\n'파일에서 불러오기'를 이용하세요."); }
+}
+function stopCam(){
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+  $("#mCam").style.display="none"; $("#mShot").style.display="none";
+  $("#mPhoto").style.display=""; $("#mCamBtn").textContent="📷 카메라 켜기";
+}
+// 캔버스로 240px 폭 축소 + JPEG 압축 → 용량 절감
+function shrink(src, w, h){
+  const dw=240, dh=Math.round((h/w)*dw)||300;
+  const c=document.createElement("canvas"); c.width=dw; c.height=dh;
+  c.getContext("2d").drawImage(src,0,0,dw,dh);
+  return c.toDataURL("image/jpeg",0.7);
+}
+$("#mCamBtn").onclick = toggleCam;
+$("#mShot").onclick = ()=>{
+  const v=$("#mCam"); if(!v.videoWidth) return;
+  photoData = shrink(v, v.videoWidth, v.videoHeight);
+  setPreview(); stopCam();
+};
+$("#mPhotoFileBtn").onclick = ()=>$("#mPhotoFile").click();
+$("#mPhotoFile").onchange = e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const img=new Image();
+  img.onload=()=>{ photoData=shrink(img,img.width,img.height); setPreview(); };
+  img.src=URL.createObjectURL(f);
+};
+$("#mPhotoClear").onclick = ()=>{ photoData=null; setPreview(); };
+$("#mDlg").addEventListener("close", stopCam);  // 취소/ESC/저장 시 카메라 해제
+// 시작일·기간 변경 시 만료일 자동 계산
+const autoEnd = ()=>{ if($("#mStart").value) $("#mEnd").value = addMonths($("#mStart").value, $("#mMonths").value); };
+$("#mStart").onchange = autoEnd; $("#mMonths").onchange = autoEnd;
+$("#mSave").onclick = ()=>{
+  const name=$("#mName").value.trim(); if(!name){ alert("이름을 입력하세요"); return; }
+  const id=+$("#mId").value; const wasNew=!id;
+  const m = id? db.members.find(x=>x.id===id) : (db.members.push({id:nid()}), db.members[db.members.length-1]);
+  Object.assign(m,{ name, phone:$("#mPhone").value.trim(),
+    freq:+$("#mFreq").value, months:+$("#mMonths").value, type:undefined,
+    active:+$("#mActive").value, start:$("#mStart").value, end:$("#mEnd").value,
+    bus:$("#mBus").value==="1", route:+$("#mRoute").value||null,
+    pickup:$("#mPickup").value.trim(), dropoff:$("#mDropoff").value.trim(), stop:undefined,
+    boardTime:$("#mBoard").value, dropTime:$("#mDrop").value, classTime:$("#mClass").value.trim(),
+    arriveTime:undefined, leaveTime:undefined,
+    addr:$("#mAddr").value.trim(), guardian:$("#mGuardian").value.trim(), org:$("#mOrg").value.trim(),
+    photo:photoData||null, memo:$("#mMemo").value.trim() });
+  save(); $("#mDlg").close(); render();
+  // 새 회원은 대개 등록과 동시에 결제 → 바로 결제 등록으로 연결
+  if(wasNew && confirm(`'${name}' 회원 등록 완료!\n지금 결제도 등록할까요?`)) payFor(m.id);
+};
+$("#mDel").onclick = ()=>{
+  const id=+$("#mId").value;
+  if(!confirm("이 회원을 삭제할까요? 결제 내역은 남습니다.")) return;
+  db.members = db.members.filter(x=>x.id!==id); save(); $("#mDlg").close(); render();
+};
+
+// ---- 결제·매출(재무) ----
+let payYm = today().slice(0,7);
+let taxYr = payYm.slice(0,4);
+function renderPay(){
+  const pays = inMonth(db.payments, payYm).sort((a,b)=>a.date<b.date?1:-1);
+  const exps = inMonth(db.expenses, payYm).sort((a,b)=>a.date<b.date?1:-1);
+  const income = sum(pays,p=>p.amount), outcome = sum(exps,e=>e.amount), net = income-outcome;
+  // 강의(추가수업)별 매출
+  const lessonSales={}; pays.forEach(p=>{ if(p.lesson) lessonSales[p.lesson]=(lessonSales[p.lesson]||0)+(+p.amount||0); });
+  const lessonRows = Object.entries(lessonSales).sort((a,b)=>b[1]-a[1]);
+  // 카테고리별 지출
+  const byCat={}; exps.forEach(e=>byCat[e.category||"기타"]=(byCat[e.category||"기타"]||0)+(+e.amount||0));
+  const cats = Object.entries(byCat).sort((a,b)=>b[1]-a[1]); const maxCat = cats[0]?cats[0][1]:0;
+  // 예측·손익분기
+  const active = db.members.filter(m=>m.active!=0);
+  const projRev = sum(active, monthlyValue); const fixed = fixedTotal();
+  const arpu = active.length? Math.round(projRev/active.length):0;
+  const be = arpu>0? Math.ceil(fixed/arpu):0;
+  const unpaid = unpaidMembers();
+
+  $("#app").innerHTML = `
+  <div class="toolbar">
+    <label style="margin:0">조회 월</label>
+    <input type="month" id="payMonth" value="${payYm}" style="max-width:170px">
+    <span style="flex:1"></span>
+    <button class="btn" onclick="editPay()">+ 결제</button>
+    <button class="btn ghost" onclick="editExpense()">+ 지출</button>
+  </div>
+
+  <div class="stat">
+    <div class="card"><div class="n" style="color:var(--ok)">${won(income)}</div><div class="l">${payYm} 수입</div></div>
+    <div class="card"><div class="n" style="color:var(--warn)">${won(outcome)}</div><div class="l">${payYm} 지출</div></div>
+    <div class="card"><div class="n" style="color:${net>=0?'var(--accent)':'var(--warn)'}">${won(net)}</div><div class="l">순이익 (실제 남은 돈)</div></div>
+  </div>
+
+  ${lessonRows.length? `<div class="card">
+    <h2>강의(추가수업)별 매출 · ${payYm}</h2>
+    ${table(["강의","매출"], lessonRows.map(([n,v])=>`<tr><td>${n}</td><td class="right">${won(v)}</td></tr>`).join("")
+      +`<tr><td><b>합계</b></td><td class="right"><b>${won(sum(lessonRows,r=>r[1]))}</b></td></tr>`)}
+  </div>`:``}
+
+  <div class="card">
+    <h2>지출 분석 · ${payYm} (어디에 많이 나갔나)</h2>
+    ${cats.length? cats.map(([c,v])=>`
+      <div style="margin:8px 0">
+        <div style="display:flex;justify-content:space-between"><span>${c}</span><b>${won(v)} <span class="muted">${Math.round(v/outcome*100)}%</span></b></div>
+        <div style="background:#eef1f5;border-radius:5px;height:8px;margin-top:3px">
+          <div style="width:${Math.round(v/maxCat*100)}%;background:var(--warn);height:8px;border-radius:5px"></div></div>
+      </div>`).join("")
+      : `<p class="muted">이 달 지출 기록이 없습니다.</p>`}
+    <p class="right" style="margin-top:10px">
+      <button class="btn ghost sm" onclick="postFixedCosts()">이번달 고정비를 지출로 반영</button></p>
+  </div>
+
+  <div class="card">
+    <h2>💡 예측 · 손익분기</h2>
+    <div class="stat">
+      <div class="card"><div class="n">${won(projRev)}</div><div class="l">월 예상 매출 (활성 ${active.length}명)</div></div>
+      <div class="card"><div class="n" style="color:${projRev-fixed>=0?'var(--accent)':'var(--warn)'}">${won(projRev-fixed)}</div><div class="l">월 예상 순이익 (−고정비)</div></div>
+      <div class="card"><div class="n">${be? be+'명':'—'}</div><div class="l">손익분기 회원 수</div></div>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:8px">
+      1인당 월 매출 ${won(arpu)} · 월 고정비 ${won(fixed)} ÷ 1인당 매출 = 손익분기 ${be||'—'}명.
+      고정비는 <a class="link" onclick="gotoBackup()">백업·설정</a>에서 등록하세요.</p>
+  </div>
+
+  <div class="card">
+    <h2>💰 미납·확인 필요 회원 (${unpaid.length}명)</h2>
+    ${unpaid.length? table(["회원","연락처","사유",""], unpaid.map(u=>`<tr>
+        <td>${u.m.name}</td><td>${u.m.phone||""}</td>
+        <td><span class="tag ${u.reason.includes('만료')?'exp':'soon'}">${u.reason}</span></td>
+        <td class="right"><button class="btn ghost sm" onclick="payFor(${u.m.id})">결제 등록</button></td>
+      </tr>`).join(""))
+      : `<p class="muted">미납 회원이 없습니다. 👍</p>`}
+  </div>
+
+  <div class="card">
+    <div class="toolbar"><h2 style="margin:0">결제 내역 · ${payYm}</h2><span style="flex:1"></span>
+      <span class="muted">${pays.length}건 · ${won(income)}</span></div>
+    ${table(["날짜","회원","항목","수단","금액",""], pays.map(p=>`<tr>
+      <td>${p.date||""}</td><td>${memberName(p.memberId)}</td><td>${p.item||""}</td>
+      <td>${p.method||""}</td><td class="right">${won(p.amount)}</td>
+      <td class="right"><button class="btn ghost sm" onclick="editPay(${p.id})">수정</button></td>
+    </tr>`).join("") || `<tr><td colspan="6" class="muted">결제 내역이 없습니다.</td></tr>`)}
+  </div>
+
+  <div class="card">
+    <div class="toolbar"><h2 style="margin:0">지출 내역 · ${payYm}</h2><span style="flex:1"></span>
+      <span class="muted">${exps.length}건 · ${won(outcome)}</span></div>
+    ${table(["날짜","분류","내용","금액",""], exps.map(e=>`<tr>
+      <td>${e.date||""}</td><td>${e.category||""}</td><td>${e.memo||""}</td>
+      <td class="right">${won(e.amount)}</td>
+      <td class="right"><button class="btn ghost sm" onclick="editExpense(${e.id})">수정</button></td>
+    </tr>`).join("") || `<tr><td colspan="5" class="muted">지출 내역이 없습니다.</td></tr>`)}
+  </div>
+
+  <div class="card">
+    <h2>🧾 세금신고 자료</h2>
+    <p class="muted" style="font-size:13px">연도별 월 수입·지출·순이익과 전체 거래내역을 CSV(엑셀)로 내보냅니다.</p>
+    <div class="toolbar">
+      <select id="taxYear" style="max-width:120px">${taxYearOptions()}</select>
+      <button class="btn" onclick="exportTaxCsv()">거래내역 CSV</button>
+      <button class="btn ghost" onclick="exportMonthlyCsv()">월별 요약 CSV</button>
+    </div>
+    ${monthlySummaryTable()}
+  </div>
+  ${taxHelperCard()}`;
+  $("#payMonth").onchange = e => { payYm=e.target.value; renderPay(); };
+  $("#taxYear").onchange = e => { taxYr=e.target.value; renderPay(); };
+}
+function gotoBackup(){ document.querySelector('nav [data-tab="backup"]').click(); }
+window.editPay = function(id){
+  pendingEnrollId=null;   // 일반 결제는 수강등록 연결 없음
+  const p = id? db.payments.find(x=>x.id===id) : {};
+  $("#pMember").innerHTML = db.members.map(m=>`<option value="${m.id}" ${m.id===p.memberId?"selected":""}>${m.name}${m.active==0?" (중지)":""}</option>`).join("")
+    || `<option value="">회원을 먼저 등록하세요</option>`;
+  $("#pLesson").innerHTML = `<option value="">— 회원권/직접입력 —</option>`+
+    db.lessons.flatMap(l=>[5,10].map(s=>{
+      const val=`${l.name}|${s}`, sel=(p.lesson===l.name && (p.lessonSessions||0)===s)?"selected":"";
+      return `<option value="${esc(val)}" ${sel}>${l.name} ${s}회 (${won(s===5?l.price5:l.price10)})</option>`;
+    })).join("");
+  $("#pId").value=id||""; $("#pAmount").value=p.amount||""; $("#pDate").value=p.date||today();
+  $("#pItem").value=p.item||""; $("#pMethod").value=p.method||"카드"; $("#pMemo").value=p.memo||"";
+  $("#pDel").classList.toggle("hidden",!id);
+  $("#pRenew").checked = !id && !p.lesson;   // 신규 회원권 결제만 기본 '갱신'
+  if(!id) fillFeeFromMember();      // 신규 등록일 때만 요금 자동 채움
+  renewPreview();
+  $("#pDlg").showModal();
+};
+// 선택한 회원의 요금표 기준 금액·항목 자동 입력 (강의 선택 시엔 건너뜀)
+function fillFeeFromMember(){
+  if($("#pLesson").value) return;
+  const m = db.members.find(x=>x.id===+$("#pMember").value); if(!m) return;
+  const f = memberFee(m);
+  $("#pAmount").value = f.total || "";
+  $("#pItem").value = payItemLabel(m);
+}
+// 강의 선택 시: 항목·금액 자동 채움(5/10회), 회원권 갱신 해제
+$("#pLesson").onchange = ()=>{
+  const v=$("#pLesson").value;
+  if(v){ const [name,s]=v.split("|"); const l=db.lessons.find(x=>x.name===name); const sess=+s;
+    if(l){ $("#pItem").value=`${name} ${sess}회`; $("#pAmount").value=(sess===5?l.price5:l.price10)||""; $("#pRenew").checked=false; } }
+  else fillFeeFromMember();
+};
+// 갱신 시 만료일 미리보기: 기간이 남았으면 만료일 뒤로, 만료됐으면 결제일 기준 +개월
+function renewEnd(m, date){
+  const months=m.months||1;
+  const base=(m.end && m.end>=date)? m.end : date;
+  return addMonths(base, months);
+}
+function renewPreview(){
+  const m=db.members.find(x=>x.id===+$("#pMember").value);
+  if(!m){ $("#pRenewInfo").textContent=""; return; }
+  $("#pRenewInfo").textContent = `(만료일 → ${renewEnd(m, $("#pDate").value||today())})`;
+}
+$("#pMember").onchange = ()=>{ if(!$("#pId").value) fillFeeFromMember(); renewPreview(); };
+$("#pDate").onchange = renewPreview;
+$("#pRenew").onchange = renewPreview;
+$("#pSave").onclick = ()=>{
+  const memberId=+$("#pMember").value; const amount=+$("#pAmount").value;
+  if(!memberId){ alert("회원을 선택하세요"); return; }
+  if(!amount){ alert("금액을 입력하세요"); return; }
+  const id=+$("#pId").value;
+  const p = id? db.payments.find(x=>x.id===id) : (db.payments.push({id:nid()}), db.payments[db.payments.length-1]);
+  const [lname,lsess]= $("#pLesson").value? $("#pLesson").value.split("|") : ["",""];
+  Object.assign(p,{ memberId, amount, date:$("#pDate").value||today(),
+    item:$("#pItem").value.trim(), method:$("#pMethod").value, memo:$("#pMemo").value.trim(),
+    lesson:lname||"", lessonSessions:+lsess||null });
+  // 회원권 갱신: 만료일 연장 (만료 상태 해제)
+  if($("#pRenew").checked){
+    const m=db.members.find(x=>x.id===memberId);
+    if(m){ m.end=renewEnd(m, p.date); if(!m.start) m.start=p.date; }
+  }
+  // 강의 수강등록에서 온 결제면 '결제됨' 표시
+  if(pendingEnrollId){ const e=db.lessonEnrolls.find(x=>x.id===pendingEnrollId); if(e) e.paid=true; pendingEnrollId=null; }
+  save(); $("#pDlg").close();
+  payYm = (p.date||today()).slice(0,7); render();
+  if($("#mDlg").open){ renderMemberPays(memberId); $("#mEnd").value=(db.members.find(x=>x.id===memberId)||{}).end||""; }
+};
+$("#pDel").onclick = ()=>{
+  const id=+$("#pId").value;
+  if(!confirm("이 결제 내역을 삭제할까요?")) return;
+  db.payments = db.payments.filter(x=>x.id!==id); save(); $("#pDlg").close(); render();
+};
+// 해당 회원 결제 등록 바로 열기 (회원 창이 열려 있으면 그 위에 겹쳐 띄움)
+window.payFor = function(memberId){ editPay(); $("#pMember").value=memberId; fillFeeFromMember(); };
+
+// ---- 지출 ----
+window.editExpense = function(id){
+  const e = id? db.expenses.find(x=>x.id===id) : {};
+  $("#eCat").innerHTML = EXP_CATS.map(c=>`<option ${c===e.category?"selected":""}>${c}</option>`).join("");
+  $("#eId").value=id||""; $("#eAmount").value=e.amount||""; $("#eDate").value=e.date||today();
+  $("#eMemo").value=e.memo||"";
+  $("#eDel").classList.toggle("hidden",!id);
+  $("#eDlg").showModal();
+};
+$("#eSave").onclick = ()=>{
+  const amount=+$("#eAmount").value; if(!amount){ alert("금액을 입력하세요"); return; }
+  const id=+$("#eId").value;
+  const e = id? db.expenses.find(x=>x.id===id) : (db.expenses.push({id:nid()}), db.expenses[db.expenses.length-1]);
+  Object.assign(e,{ category:$("#eCat").value, amount, date:$("#eDate").value||today(), memo:$("#eMemo").value.trim() });
+  save(); $("#eDlg").close(); payYm=(e.date||today()).slice(0,7); render();
+};
+$("#eDel").onclick = ()=>{
+  const id=+$("#eId").value;
+  if(!confirm("이 지출을 삭제할까요?")) return;
+  db.expenses = db.expenses.filter(x=>x.id!==id); save(); $("#eDlg").close(); render();
+};
+// 등록된 월 고정비를 이번 조회월의 지출로 일괄 반영
+function postFixedCosts(){
+  if(!db.fixedCosts.length){ alert("먼저 [백업·설정]에서 월 고정비(강사비 등)를 등록하세요."); return; }
+  const tag="[고정비]";
+  if(db.expenses.some(e=>(e.date||"").startsWith(payYm) && (e.memo||"").startsWith(tag))
+     && !confirm(payYm+"에 이미 고정비가 반영되어 있습니다. 또 추가할까요?")) return;
+  const d = payYm+"-01";
+  db.fixedCosts.forEach(c=>db.expenses.push({ id:nid(), date:d, category:c.category||"기타",
+    amount:+c.amount||0, memo:tag+" "+(c.memo||c.category||"") }));
+  save(); renderPay();
+}
+
+// ---- 세금자료 CSV ----
+function taxYearOptions(){
+  const ys=new Set([taxYr]);
+  db.payments.concat(db.expenses).forEach(x=>{ if(x.date) ys.add(x.date.slice(0,4)); });
+  return [...ys].sort().reverse().map(y=>`<option ${y===taxYr?"selected":""}>${y}</option>`).join("");
+}
+function monthlySummaryTable(){
+  let ti=0,to=0; const rows=[];
+  for(let mo=1;mo<=12;mo++){
+    const ym=`${taxYr}-${String(mo).padStart(2,"0")}`;
+    const i=sum(inMonth(db.payments,ym),p=>p.amount), o=sum(inMonth(db.expenses,ym),e=>e.amount);
+    ti+=i; to+=o;
+    rows.push(`<tr><td>${mo}월</td><td class="right">${won(i)}</td><td class="right">${won(o)}</td><td class="right">${won(i-o)}</td></tr>`);
+  }
+  rows.push(`<tr><td><b>합계</b></td><td class="right"><b>${won(ti)}</b></td><td class="right"><b>${won(to)}</b></td><td class="right"><b>${won(ti-to)}</b></td></tr>`);
+  return `<div style="overflow-x:auto">`+table(["월","수입","지출","순이익"],rows.join(""))+`</div>`;
+}
+function csvRow(a){ return a.map(v=>{ v=String(v==null?"":v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }).join(","); }
+function dl(name,text){
+  const blob=new Blob(["﻿"+text],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click();
+}
+function exportTaxCsv(){
+  const head=["날짜","구분","분류/항목","상대(회원)","금액","메모"]; const data=[];
+  db.payments.filter(p=>(p.date||"").startsWith(taxYr)).forEach(p=>data.push([p.date,"수입",p.item||"",memberName(p.memberId),+p.amount||0,p.memo||""]));
+  db.expenses.filter(e=>(e.date||"").startsWith(taxYr)).forEach(e=>data.push([e.date,"지출",e.category||"","",-(+e.amount||0),e.memo||""]));
+  data.sort((a,b)=>a[0]<b[0]?-1:1);
+  dl(`거래내역_${taxYr}.csv`,[head,...data].map(csvRow).join("\n"));
+}
+function exportMonthlyCsv(){
+  const head=["월","수입","지출","순이익"]; const data=[];
+  for(let mo=1;mo<=12;mo++){ const ym=`${taxYr}-${String(mo).padStart(2,"0")}`;
+    const i=sum(inMonth(db.payments,ym),p=>p.amount), o=sum(inMonth(db.expenses,ym),e=>e.amount);
+    data.push([mo+"월",i,o,i-o]); }
+  dl(`월별요약_${taxYr}.csv`,[head,...data].map(csvRow).join("\n"));
+}
+
+// ---- 절세 도우미 (참고용 추정) ----
+// 2024 종합소득세 누진세율표 [과세표준 상한, 세율, 누진공제]
+function estIncomeTax(taxable){
+  const b=[[14000000,0.06,0],[50000000,0.15,1260000],[88000000,0.24,5760000],
+    [150000000,0.35,15440000],[300000000,0.38,19940000],[500000000,0.40,25940000],
+    [1000000000,0.42,35940000],[Infinity,0.45,65940000]];
+  if(taxable<=0) return {tax:0, rate:0.06};
+  for(const [cap,rate,ded] of b) if(taxable<=cap) return {tax:Math.max(0,Math.round(taxable*rate-ded)), rate};
+}
+function taxHelperCard(){
+  const yr=taxYr, byYr=x=>(x.date||"").startsWith(yr);
+  const income=sum(db.payments.filter(byYr),p=>p.amount);
+  const expense=sum(db.expenses.filter(byYr),e=>e.amount);
+  const taxable=Math.max(0,income-expense);
+  const cur=estIncomeTax(taxable), noExp=estIncomeTax(Math.max(0,income));
+  const local=t=>Math.round(t*1.1);                       // 지방소득세 10% 포함
+  const saved=local(noExp.tax)-local(cur.tax);            // 경비 기록으로 자동 절감된 세금
+  const marg=Math.round(cur.rate*1100)/10;               // 한계세율(지방세 포함) %
+  const per=Math.round(10000*cur.rate*1.1);              // 경비 1만원당 절세액
+  const blob=db.expenses.filter(byYr).map(e=>(e.category||"")+" "+(e.memo||"")).join(" ").toLowerCase();
+  const checks=[
+    {k:["차량","유류","주유","기름","정비"],t:"차량 유류비·정비",tip:"차량 운행 시 유류·정비·자동차보험도 경비"},
+    {k:["통신","전화","인터넷","휴대폰"],t:"통신비",tip:"사업용 휴대폰·인터넷 요금"},
+    {k:["노란우산","공제부금"],t:"노란우산공제",tip:"소득공제 연 최대 500만원(가입 시)"},
+    {k:["보험","4대","연금"],t:"보험료",tip:"사업 관련 보험·4대보험 사업주 부담분"},
+    {k:["광고","홍보","마케팅","전단","간판"],t:"광고·홍보비",tip:"전단·SNS·간판 제작비"},
+    {k:["수수료","카드","결제","pg"],t:"카드·결제 수수료",tip:"카드사·PG 결제 수수료"},
+    {k:["소모품","비품","용품","기구"],t:"비품·소모품비",tip:"운동기구·청소용품 등"},
+    {k:["교육","세미나","도서"],t:"교육·도서비",tip:"업무 관련 교육·자료비"},
+  ].map(c=>({...c, has:c.k.some(w=>blob.includes(w))}));
+  const missing=checks.filter(c=>!c.has), have=checks.filter(c=>c.has);
+  return `<div class="card">
+    <h2>💡 절세 도우미 <span class="muted" style="font-size:13px">· ${yr}년 (참고용 추정)</span></h2>
+    <div class="stat">
+      <div class="card"><div class="n">${won(taxable)}</div><div class="l">과세소득 (수입−경비)</div></div>
+      <div class="card"><div class="n" style="color:var(--ok)">−${won(saved)}</div><div class="l">경비 기록으로 자동 절감된 세금</div></div>
+      <div class="card"><div class="n">약 ${won(local(cur.tax))}</div><div class="l">예상 소득세 (지방세 포함)</div></div>
+    </div>
+    <p style="margin:12px 0 4px"><b>지출을 경비로 빠짐없이 기록하는 것이 가장 확실한 절세입니다.</b>
+       현재 한계세율 약 ${marg}% → <b>경비 1만원당 약 ${won(per)}</b>의 세금이 줄어듭니다.</p>
+    <p style="margin:14px 0 6px"><b>놓치기 쉬운 경비·공제 (아직 기록 없음 — 해당되면 지출로 추가하세요)</b></p>
+    ${missing.length? `<ul style="margin:0;padding-left:18px;line-height:1.8">`+
+        missing.map(c=>`<li>⬜ <b>${c.t}</b> <span class="muted">— ${c.tip}</span></li>`).join("")+`</ul>`
+      : `<p class="muted">주요 경비 항목이 모두 기록돼 있습니다. 👍</p>`}
+    ${have.length? `<p class="muted" style="font-size:13px;margin-top:8px">✓ 이미 반영: ${have.map(c=>c.t).join(", ")}</p>`:``}
+    ${reportCompare(income, taxable)}
+    <p class="muted" style="font-size:12px;margin-top:12px;border-top:1px solid var(--line);padding-top:8px">
+      ⚠️ 2024년 종합소득세율 기준 <b>참고용 추정</b>입니다. 부가가치세·업종별 특례·인적공제·세액공제 등은 미반영이며,
+      실제 신고와 공제 적용은 반드시 세무사와 확인하세요.</p>
+  </div>`;
+}
+// 신고방법 비교: 장부(기장) vs 단순경비율 vs 기준경비율 → 소득금액 낮은 쪽이 절세
+function reportCompare(income, bookIncome){
+  const t=db.tax||{}, byYr=x=>(x.date||"").startsWith(taxYr);
+  const sRate=(+t.simpleRate||0)/100, stdRate=(+t.standardRate||0)/100, prev=+t.prevIncome||0;
+  const isNew = prev===0;
+  const complexObligor = (isNew?income:prev) >= SIMPLE_LIMIT_NEW;   // 복식부기의무자
+  const simpleOk = isNew ? income < SIMPLE_LIMIT_NEW : prev < SIMPLE_LIMIT_CONT;
+  // 주요경비 = 임차료(임대료) + 인건비(강사비)
+  const mainExp = sum(db.expenses.filter(e=>byYr(e) && (e.category==="임대료"||e.category==="강사비")),e=>e.amount);
+  const incSimple = Math.round(income*(1-sRate));
+  const incStd = Math.max(0, income - mainExp - Math.round(income*stdRate*(complexObligor?0.5:1)));
+  const local=x=>Math.round(x*1.1);
+  const rows=[
+    {name:"장부(기장) 신고", inc:bookIncome, ok:true, note:"실제 수입 − 실제 경비 (권장: 기장세액공제 가능)"},
+    {name:"단순경비율 추계", inc:incSimple, ok:simpleOk, note:`수입 × (1 − ${t.simpleRate||0}%)`},
+    {name:"기준경비율 추계", inc:incStd, ok:true, note:`수입 − 주요경비 − 수입×${t.standardRate||0}%${complexObligor?" (기타경비 ½)":""}`},
+  ];
+  const best = rows.filter(r=>r.ok).reduce((a,b)=>b.inc<a.inc?b:a);
+  return `<div style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+    <p style="margin:0 0 6px"><b>📊 신고방법 비교</b> <span class="muted" style="font-size:13px">— 소득금액이 낮을수록 세금이 적습니다</span></p>
+    <div style="overflow-x:auto">${table(["신고 방법","소득금액","예상 소득세","적용"],
+      rows.map(r=>{
+        const isBest = r.ok && r===best;
+        return `<tr${isBest?' style="background:#e6f6ec"':''}>
+          <td>${r.name}${isBest?' <b style="color:var(--ok)">← 유리</b>':''}<div class="muted" style="font-size:12px">${r.note}</div></td>
+          <td class="right">${won(r.inc)}</td>
+          <td class="right">${r.ok?'약 '+won(local(estIncomeTax(r.inc).tax)):'-'}</td>
+          <td>${r.ok?'가능':'<span class="muted">대상 아님</span>'}</td></tr>`;
+      }).join(""))}</div>
+    <p class="muted" style="font-size:12px;margin:8px 0 0">
+      실제 경비가 경비율 추계보다 <b>많으면 장부신고</b>가, <b>적으면 단순경비율 추계</b>가 유리합니다.
+      단순경비율은 ${isNew?`신규사업자 해당연도 수입 7,500만원 미만`:`직전연도 수입 2,400만원 미만`}일 때 적용(스포츠·여가 서비스업 기준).
+      주요경비는 임대료+강사비로 계산했으며, 강사가 3.3% 프리랜서면 인건비가 아닐 수 있으니 세무사와 확인하세요.
+      경비율은 예시값이니 <a class="link" onclick="gotoBackup()">설정</a>에서 본인 업종코드 값으로 수정하세요.</p>
+  </div>`;
+}
+
+// ---- 기타수업(추가수업) 명단 + 횟수 출석 ----
+let pendingEnrollId=null;   // 강의 수강등록에서 결제창을 연 경우 그 등록 id
+function renderLessons(){
+  $("#app").innerHTML = db.lessons.length? db.lessons.map((l,i)=>{
+    const enrolls=db.lessonEnrolls.filter(e=>e.lesson===l.name)
+      .filter(e=>db.members.some(m=>m.id===e.memberId))
+      .sort((a,b)=>memberName(a.memberId).localeCompare(memberName(b.memberId),"ko"));
+    const notIn=db.members.filter(m=>m.active!=0 && !enrolls.some(e=>e.memberId===m.id))
+      .sort((a,b)=>a.name.localeCompare(b.name,"ko"));
+    return `<div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0">${l.name}</h2>
+        <span class="muted">· 5회 ${won(l.price5)} / 10회 ${won(l.price10)} · ${enrolls.length}명</span>
+        <span style="flex:1"></span>
+        <select id="lessAdd${i}" style="max-width:150px">${notIn.length? notIn.map(m=>`<option value="${m.id}">${m.name}</option>`).join("") : `<option value="">회원 없음</option>`}</select>
+        <select id="lessSess${i}"><option value="5">5회</option><option value="10">10회</option></select>
+        <button class="btn sm" onclick="enrollLesson('${esc(l.name)}', +document.getElementById('lessAdd${i}').value, +document.getElementById('lessSess${i}').value)">+ 등록</button>
+      </div>
+      ${enrolls.length? `<div style="overflow-x:auto">`+table(["이름","횟수","남은","최근 출석","결제","출석체크",""], enrolls.map(e=>{
+        const used=(e.log||[]).length, remain=(e.sessions||0)-used, done=remain<=0;
+        const lastDate=(e.log||[]).filter(Boolean).sort().slice(-1)[0];
+        return `<tr>
+          <td>${memberName(e.memberId)}</td>
+          <td>${e.sessions}회 <span class="muted">${won(e.price)}</span></td>
+          <td>${done? '<span class="tag exp">소진</span>' : `<b>${remain}회</b> <span class="muted">(${used}/${e.sessions})</span>`}</td>
+          <td>${lastDate||'<span class="muted">-</span>'}</td>
+          <td><span class="tag ${e.paid?'ok':'exp'}" style="cursor:pointer" onclick="togglePaid(${e.id})">${e.paid?'결제완료':'미납'}</span></td>
+          <td>
+            <button class="btn sm" onclick="quickAttend(${e.id})" ${done?'disabled':''}>＋출석</button>
+            <button class="btn ghost sm" onclick="openAttendLog(${e.id})">이력</button>
+          </td>
+          <td class="right">
+            <button class="btn ghost sm" onclick="payForEnroll(${e.id})">결제</button>
+            <button class="btn ghost sm" onclick="removeEnroll(${e.id})">제외</button></td></tr>`;
+      }).join(""))+`</div>` : `<p class="muted">등록된 수강생이 없습니다. 회원·횟수를 골라 등록하세요.</p>`}
+    </div>`;
+  }).join("") : `<div class="card"><p class="muted">등록된 강의가 없습니다. <a class="link" onclick="gotoBackup()">백업·설정</a> → 추가수업(강의) 요금에서 강의를 추가하세요.</p></div>`;
+}
+window.enrollLesson=function(name, memberId, sessions){
+  if(!memberId){ alert("등록할 회원을 선택하세요."); return; }
+  const l=db.lessons.find(x=>x.name===name); const price=l?(sessions===5?l.price5:l.price10):0;
+  db.lessonEnrolls.push({id:nid(), memberId, lesson:name, sessions, log:[], paid:false, price});
+  save(); renderLessons();
+};
+const attCount = e => (e.log||[]).length;   // 출석 횟수 = 로그 개수
+// 오늘 날짜로 빠른 출석
+window.quickAttend=function(enrollId){
+  const e=db.lessonEnrolls.find(x=>x.id===enrollId); if(!e) return;
+  if(attCount(e)>=e.sessions){ alert("횟수를 모두 사용했습니다. 재등록이 필요합니다."); return; }
+  e.log=e.log||[]; e.log.push(today()); save(); renderLessons();
+};
+// 출석 이력 창 (날짜별 추가·삭제)
+window.openAttendLog=function(enrollId){
+  const e=db.lessonEnrolls.find(x=>x.id===enrollId); if(!e) return;
+  $("#aEnrollId").value=enrollId; $("#aDate").value=today();
+  renderAttendLog(); $("#aDlg").showModal();
+};
+function renderAttendLog(){
+  const e=db.lessonEnrolls.find(x=>x.id===+$("#aEnrollId").value); if(!e) return;
+  const log=e.log||[];
+  $("#aInfo").textContent=`${memberName(e.memberId)} · ${e.lesson} ${e.sessions}회 · 출석 ${log.length}/${e.sessions} (남은 ${Math.max(0,e.sessions-log.length)}회)`;
+  const idx=log.map((d,i)=>({d,i})).sort((a,b)=> a.d<b.d?1:-1);   // 최신순
+  $("#aList").innerHTML = log.length? `<div style="overflow-x:auto">`+table(["회차","출석일",""], idx.map((o,rank)=>
+    `<tr><td>${log.length-rank}회차</td><td>${o.d||'<span class="muted">날짜미상</span>'}</td>
+     <td class="right"><button type="button" class="btn ghost sm" onclick="delAttend(${e.id},${o.i})">삭제</button></td></tr>`).join(""))+`</div>`
+    : `<p class="muted">출석 기록이 없습니다.</p>`;
+}
+window.delAttend=function(enrollId, index){
+  const e=db.lessonEnrolls.find(x=>x.id===enrollId); if(!e||!e.log) return;
+  e.log.splice(index,1); save(); renderAttendLog(); if(tab==="lessons") renderLessons();
+};
+$("#aAdd").onclick=()=>{
+  const e=db.lessonEnrolls.find(x=>x.id===+$("#aEnrollId").value); if(!e) return;
+  if(attCount(e)>=e.sessions){ alert("횟수를 모두 사용했습니다. 재등록이 필요합니다."); return; }
+  e.log=e.log||[]; e.log.push($("#aDate").value||today());
+  save(); renderAttendLog(); if(tab==="lessons") renderLessons();
+};
+window.togglePaid=function(enrollId){
+  const e=db.lessonEnrolls.find(x=>x.id===enrollId); if(!e) return;
+  e.paid=!e.paid; save(); renderLessons();
+};
+window.removeEnroll=function(enrollId){
+  const e=db.lessonEnrolls.find(x=>x.id===enrollId); if(!e) return;
+  if(!confirm(`${memberName(e.memberId)}님의 '${e.lesson}' 수강등록을 삭제할까요? (결제 내역은 유지)`)) return;
+  db.lessonEnrolls=db.lessonEnrolls.filter(x=>x.id!==enrollId); save(); renderLessons();
+};
+// 수강등록 기준 결제창 열기 → 저장 시 이 등록을 '결제완료'로
+window.payForEnroll=function(enrollId){
+  const e=db.lessonEnrolls.find(x=>x.id===enrollId); if(!e) return;
+  editPay(); pendingEnrollId=enrollId;
+  $("#pMember").value=e.memberId;
+  $("#pLesson").value=`${e.lesson}|${e.sessions}`; $("#pLesson").onchange();
+  if(e.price) $("#pAmount").value=e.price;   // 등록 당시 요금 우선
+};
+
+// ---- 차량운행 ----
+// 배차 모드: arrive=등원(등원시간+승차위치), leave=하원(하원시간+하차위치)
+let busSuggestions=[], busMode="arrive";
+const KIND_LABEL={arrive:"등원",leave:"하원",board:"등원",drop:"하원"};  // board/drop=구버전 호환
+const kindOf = k => KIND_LABEL[k]||"";
+const pickupOf = m => m.pickup||m.stop||"";     // 기존 정류장은 승차로 취급
+const dropoffOf = m => m.dropoff||"";
+const boardT = m => m.boardTime ?? m.arriveTime ?? "";   // 승차 시간 (등원 배차)
+const classT = m => m.classTime ?? m.leaveTime ?? "";    // 수업 시간 (정보용)
+const dropT  = m => m.dropTime ?? m.leaveTime ?? "";     // 하차 시간 (하원 배차, 없으면 옛 하원시간)
+const timeOf = (m,mode)=> mode==="arrive" ? boardT(m) : dropT(m);
+const locOf  = (m,mode)=> mode==="arrive" ? (pickupOf(m)||m.org||"") : (dropoffOf(m)||m.addr||"");
+// 그룹 기준: 등원=기관(어린이집·유치원·학교) 단위, 하원=동네/아파트(주소) 단위
+const groupOf = (m,mode)=> mode==="arrive"
+  ? (m.org || pickupOf(m) || "기관 미지정")
+  : regionKey(dropoffOf(m) || m.addr);
+// 하원시간을 30분 단위 구간으로 (비슷한 시간끼리 묶기)
+function timeBucket(t){
+  if(!t) return "시간 미정";
+  const [h,mm]=t.split(":").map(Number); const pad=n=>String(n).padStart(2,"0");
+  return mm<30 ? `${pad(h)}:00~${pad(h)}:30` : `${pad(h)}:30~${pad(h+1)}:00`;
+}
+// 위치 앞 2어절로 지역 묶기 (예: "세종시 나성동 3-1" → "세종시 나성동")
+const regionKey = s => { const p=(s||"").trim().split(/\s+/).filter(Boolean); return p.slice(0,2).join(" ")||"위치 미지정"; };
+// 전체 차량이용 회원을 하원시간+위치지역으로 묶고, 그룹 안은 위치순 정렬 (승차/하차 기준 선택)
+// 이미 노선이 있어도 포함 → 비슷한데 여러 노선/미지정에 흩어진 그룹을 찾아냄
+function computeSuggestions(mode){
+  const riders=db.members.filter(m=>busOn(m) && m.active!=0);
+  const map={};
+  riders.forEach(m=>{
+    const bucket=timeBucket(timeOf(m,mode)), region=groupOf(m,mode);
+    const key=bucket+" | "+region;
+    (map[key]=map[key]||{bucket,region,list:[]}).list.push(m);
+  });
+  busSuggestions=Object.values(map).map(g=>{
+    const list=g.list.sort((a,b)=>locOf(a,mode).localeCompare(locOf(b,mode),"ko"));
+    const routeSet=new Set(list.map(m=>m.route||0));           // 0 = 미지정
+    // 이미 한 노선으로 정리됨 = 모두 같은 노선(미지정 아님)
+    const unified = routeSet.size===1 && !routeSet.has(0);
+    return {...g, list, unified, routeId: unified? [...routeSet][0]:null};
+  }).sort((a,b)=> (a.unified?1:0)-(b.unified?1:0) || ((a.bucket+a.region)<(b.bucket+b.region)?-1:1));
+  return busSuggestions;
+}
+window.setBusMode=function(mode){ busMode=mode; renderBus(); };
+window.makeSuggestedRoute=function(idx){
+  const g=busSuggestions[idx]; if(!g) return;
+  const kindLabel = kindOf(busMode);
+  const name=`[${kindLabel}] ${g.bucket} ${g.region}`.slice(0,34);
+  const startT = /^\d/.test(g.bucket) ? g.bucket.split("~")[0].trim() : "";  // "09:00~09:30" → "09:00"
+  const r={id:nid(), name, kind:busMode, time:startT, info:`${kindLabel} · ${g.bucket} · ${g.region}`}; db.routes.push(r);
+  g.list.forEach(m=>{ m.route=r.id; m.bus=true; });
+  // 회원이 빠져나가 비어버린 기존 노선은 자동 삭제
+  db.routes = db.routes.filter(rt=> rt.id===r.id || db.members.some(m=>m.route===rt.id));
+  save(); render();
+};
+const routeNameById = id => (db.routes.find(r=>r.id===id)||{}).name || "미지정";
+// 호차 자동 배정: 운행 시간 순서로, 한 호차가 겹치지 않게(1회 소요시간 기준) + 정원 고려
+// ※ 지도 거리 미반영 — runMinutes(1회 소요시간)로 근사
+window.autoAssignVehicles=function(){
+  const timed=db.routes.filter(r=>/^\d/.test(r.time||""));
+  if(!timed.length){ alert("운행 시간이 있는 노선이 없습니다.\n노선 수정에서 운행 시간을 입력하거나, 자동 제안으로 노선을 만드세요."); return; }
+  const N=db.vehicleCount||2, seats=db.vehicleSeats||12, dur=db.runMinutes||40;
+  const toMin=t=>{ const [h,m]=t.split(":").map(Number); return h*60+m; };
+  const cnt=rid=>db.members.filter(m=>busOn(m)&&m.route===rid&&m.active!=0).length;
+  const veh=Array.from({length:N},()=>({free:-1e9}));   // free=비는 시각(분)
+  const conflicts=[], overCap=[];
+  timed.slice().sort((a,b)=>toMin(a.time)-toMin(b.time)).forEach(r=>{
+    const start=toMin(r.time), end=start+dur;
+    if(cnt(r.id)>seats) overCap.push(`${r.name}(${cnt(r.id)}명)`);
+    // 시작 전에 비는 호차 중, 가장 늦게까지 논(=활용도 높은) 호차 우선
+    let pick=-1, best=-1e9;
+    for(let i=0;i<N;i++) if(veh[i].free<=start && (pick<0 || veh[i].free>best)){ best=veh[i].free; pick=i; }
+    if(pick<0){ // 전부 바쁨 → 가장 먼저 비는 호차, 시간 충돌로 표시
+      pick=0; for(let i=1;i<N;i++) if(veh[i].free<veh[pick].free) pick=i;
+      conflicts.push(`${r.name}(${r.time})`);
+    }
+    r.vehicle=pick+1; veh[pick].free=end;
+  });
+  save(); render();
+  let msg=`운행 시간이 있는 ${timed.length}개 노선을 ${N}호차에 자동 배정했습니다. (1회 소요 ${dur}분 기준)`;
+  const untimed=db.routes.length-timed.length;
+  if(untimed) msg+=`\n· 시간 없는 ${untimed}개 노선은 제외 (수정에서 운행 시간 입력)`;
+  if(conflicts.length) msg+=`\n⚠️ 차량 부족(시간 겹침): ${conflicts.join(", ")} → 대수를 늘리거나 시간을 조정하세요.`;
+  if(overCap.length) msg+=`\n⚠️ 정원(${seats}명) 초과: ${overCap.join(", ")} → 노선을 나누세요.`;
+  alert(msg);
+};
+function renderBus(){
+  const riderTable = riders => riders.length? `<div style="overflow-x:auto">`+table(["이름","승차","수업","하차","승차위치","하차위치","연락처"],
+      riders.slice().sort((a,b)=>(timeOf(a,busMode)||"").localeCompare(timeOf(b,busMode)||"")||a.name.localeCompare(b.name,"ko")).map(m=>
+        `<tr><td>${m.name}</td><td>${boardT(m)||"-"}</td><td>${classT(m)||"-"}</td><td>${m.dropTime||"-"}</td><td>${pickupOf(m)||"-"}</td><td>${dropoffOf(m)||"-"}</td><td>${m.phone||""}</td></tr>`).join(""))+`</div>`
+      : `<p class="muted" style="margin:4px 0 0">해당 회원이 없습니다.</p>`;
+  const sugg=computeSuggestions(busMode);
+  const isArrive = busMode==="arrive", modeLabel=kindOf(busMode);
+  const timeCol = isArrive?"승차 시간":"하차 시간";
+  const locCol  = isArrive?"승차 위치":"하차 위치";
+  const groupByLabel = isArrive?"기관(어린이집·유치원·학교)":"동네/아파트";
+  const routeCnt = rid => db.members.filter(m=>busOn(m)&&m.route===rid&&m.active!=0).length;
+  const kindTagOf = k => k?`<span class="tag ${(k==="arrive"||k==="board")?"ok":"soon"}">${kindOf(k)}</span>`:"";
+  // 호차별 운행 스케줄: 한 호차가 시간 순서대로 여러 번 운행
+  const schedule = (()=>{
+    const vs=[]; for(let i=1;i<=(db.vehicleCount||2);i++) vs.push(i); vs.push(null);
+    return vs.map(v=>{
+      const rs=db.routes.filter(r=>(r.vehicle||null)===v).sort((a,b)=>(a.time||"~").localeCompare(b.time||"~"));
+      if(v===null && !rs.length) return "";
+      return `<div style="margin-bottom:12px">
+        <b>🚐 ${v?v+"호차":"호차 미지정"}</b> <span class="muted">· ${rs.length}회 운행 · 총 ${rs.reduce((s,r)=>s+routeCnt(r.id),0)}명</span>
+        ${rs.length? `<div style="overflow-x:auto"><table>${rs.map(r=>`<tr>
+            <td style="width:64px">${r.time||"-"}</td><td>${kindTagOf(r.kind)}</td>
+            <td>${r.name}</td><td class="right">${routeCnt(r.id)}명</td>
+            <td class="right"><button class="btn ghost sm" onclick="editRoute(${r.id})">호차·시간</button></td>
+          </tr>`).join("")}</table></div>`
+          : `<p class="muted" style="margin:4px 0">배정된 노선이 없습니다.</p>`}
+      </div>`;
+    }).join("");
+  })();
+  $("#app").innerHTML = `
+  <div class="card">
+    <div class="toolbar"><h2 style="margin:0">🚐 호차별 운행 스케줄</h2>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="autoAssignVehicles()">⚙️ 호차 자동 배정</button></div>
+    ${schedule}
+    <p class="muted" style="font-size:12px;margin-top:4px">한 호차가 시간 순서대로 여러 번(등원→다음 등원→하원) 운행합니다.
+      <b>자동 배정</b>은 운행 시간이 겹치지 않게 + 정원을 고려해 호차를 나눕니다
+      (1회 소요 ${db.runMinutes||40}분·정원 ${db.vehicleSeats||12}명 기준, <a class="link" onclick="gotoBackup()">설정</a>에서 조정).
+      <b>지도 실제 거리는 미반영</b>입니다.</p>
+  </div>
+  <div class="card">
+    <div class="toolbar"><h2 style="margin:0">노선별 탑승 명단</h2>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="editRoute()">+ 노선 등록</button></div>
+    ${(()=>{
+      const groups = db.routes.map(r=>{
+        const riders = db.members.filter(m=>busOn(m) && m.route===r.id && m.active!=0);
+        const vehTag = r.vehicle? `<span class="tag">${r.vehicle}호차</span> `:"";
+        return `<div style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:8px">
+            ${vehTag}${kindTagOf(r.kind)} <b>${r.name}</b> <span class="muted">${r.info||""}</span>
+            <span class="muted">· ${riders.length}명</span>
+            <span style="flex:1"></span>
+            <button class="btn ghost sm" onclick="editRoute(${r.id})">수정</button>
+          </div>${riderTable(riders)}</div>`;
+      });
+      return groups.length? groups.join("")
+        : `<p class="muted">아직 만든 노선이 없습니다. 아래 '노선 자동 제안'에서 만들어 보세요.</p>`;
+    })()}
+  </div>
+  <div class="card">
+    <div class="toolbar">
+      <h2 style="margin:0">🧭 노선 자동 제안</h2>
+      <span style="flex:1"></span>
+      <button class="btn ${isArrive?'':'ghost'} sm" onclick="setBusMode('arrive')">등원 배차</button>
+      <button class="btn ${isArrive?'ghost':''} sm" onclick="setBusMode('leave')">하원 배차</button>
+    </div>
+    <p class="muted" style="font-size:13px;margin-top:0"><b>${modeLabel} 배차</b>: 전체 차량이용 회원을 <b>${timeCol}(30분 단위) + ${groupByLabel} 단위</b>로 묶고, 그룹 안은 <b>${locCol}순</b>으로 정렬했습니다(동선 참고용, 지도 최적화 아님).
+      비슷한데 <b>여러 노선/미지정에 흩어진 그룹</b>을 위에 먼저 보여주고 <b>합치기</b>를 제안합니다.</p>
+    ${(()=>{
+      const scattered=sugg.filter(g=>!g.unified), organized=sugg.filter(g=>g.unified);
+      if(!sugg.length) return `<p class="muted">차량 이용 회원이 없습니다. (회원 등록 시 '차량 이용'+${timeCol}·${locCol} 입력)</p>`;
+      const card=(g,i)=>`
+        <div style="margin-bottom:16px;border:1px solid ${g.unified?'var(--line)':'var(--warn)'};border-radius:10px;padding:12px">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <b>🕒 ${g.bucket}</b> <span class="tag ${isArrive?'ok':'soon'}">${modeLabel} · ${g.region}</span>
+            <span class="muted">· ${g.list.length}명</span>
+            ${g.unified? `<span class="tag ok">✓ ${routeNameById(g.routeId)} 운영 중</span>`
+                       : `<span class="tag exp">여러 노선/미지정에 흩어짐</span>`}
+            <span style="flex:1"></span>
+            <button class="btn sm" onclick="makeSuggestedRoute(${i})">${g.unified?'노선 다시 만들기':'이 그룹으로 노선 합치기'}</button>
+          </div>
+          <div style="overflow-x:auto">${table(["순서","이름",timeCol,locCol,"현재 노선","연락처"], g.list.map((m,k)=>
+            `<tr><td>${k+1}</td><td>${m.name}</td><td>${timeOf(m,busMode)||"-"}</td>
+             <td>${locOf(m,busMode)||'<span class="muted">미입력</span>'}</td>
+             <td>${m.route?routeNameById(m.route):'<span class="tag exp">미지정</span>'}</td>
+             <td>${m.phone||""}</td></tr>`).join(""))}</div>
+        </div>`;
+      const idxOf=g=>sugg.indexOf(g);
+      let html="";
+      if(scattered.length) html+=`<p style="margin:6px 0"><b>⚠️ 정리 필요 (${scattered.length}그룹)</b></p>`+scattered.map(g=>card(g,idxOf(g))).join("");
+      if(organized.length) html+=`<p style="margin:14px 0 6px" class="muted"><b>정리된 그룹 (${organized.length})</b></p>`+organized.map(g=>card(g,idxOf(g))).join("");
+      return html;
+    })()}
+  </div>`;
+}
+function vehicleOptions(sel){
+  let o=`<option value="">미지정</option>`;
+  for(let i=1;i<=(db.vehicleCount||2);i++) o+=`<option value="${i}" ${i===sel?"selected":""}>${i}호차</option>`;
+  return o;
+}
+window.editRoute = function(id){
+  const r = id? db.routes.find(x=>x.id===id) : {};
+  $("#rTitle").textContent = id? "노선 수정":"노선 등록";
+  $("#rId").value=id||""; $("#rName").value=r.name||""; $("#rInfo").value=r.info||"";
+  $("#rVehicle").innerHTML=vehicleOptions(r.vehicle); $("#rTime").value=r.time||"";
+  $("#rDel").classList.toggle("hidden",!id);
+  $("#rDlg").showModal();
+};
+$("#rSave").onclick = ()=>{
+  const name=$("#rName").value.trim(); if(!name){ alert("노선 이름을 입력하세요"); return; }
+  const id=+$("#rId").value;
+  const r = id? db.routes.find(x=>x.id===id) : (db.routes.push({id:nid()}), db.routes[db.routes.length-1]);
+  Object.assign(r,{ name, info:$("#rInfo").value.trim(), vehicle:+$("#rVehicle").value||null, time:$("#rTime").value });
+  save(); $("#rDlg").close(); render();
+};
+$("#rDel").onclick = ()=>{
+  const id=+$("#rId").value;
+  if(!confirm("노선을 삭제할까요? 배정된 회원의 노선은 해제됩니다.")) return;
+  db.routes = db.routes.filter(x=>x.id!==id);
+  db.members.forEach(m=>{ if(m.route===id) m.route=null; });
+  save(); $("#rDlg").close(); render();
+};
+
+// ---- 백업 ----
+function renderBackup(){
+  const freqs=[2,3,5], months=[1,3];
+  const priceRows = freqs.map(f=>`<tr><td>주 ${f}회</td>`+
+    months.map(mo=>`<td><input type="number" style="max-width:130px" data-price="${f}_${mo}"
+       value="${db.prices[`${f}_${mo}`]||0}"></td>`).join("")+`</tr>`).join("");
+  $("#app").innerHTML = `
+  <div class="card">
+    <h2>요금표</h2>
+    <table style="max-width:420px">
+      <thead><tr><th>구분</th><th>1개월</th><th>3개월</th></tr></thead>
+      <tbody>${priceRows}</tbody>
+    </table>
+    <div class="row" style="max-width:420px">
+      <div><label>차량운행비 (월, 기간만큼 청구)</label><input type="number" id="busFee" value="${db.busFee||0}"></div>
+      <div><label>차량 대수 (호차 수)</label><input type="number" min="1" id="vehicleCount" value="${db.vehicleCount||2}"></div>
+    </div>
+    <div class="row" style="max-width:420px">
+      <div><label>호차 정원 (명)</label><input type="number" min="1" id="vehicleSeats" value="${db.vehicleSeats||12}"></div>
+      <div><label>1회 운행 소요시간 (분)</label><input type="number" min="5" id="runMinutes" value="${db.runMinutes||40}"></div>
+    </div>
+    <p class="muted" style="font-size:12px;margin:4px 0 0">정원·소요시간은 <b>호차 자동 배정</b>에 사용됩니다. (지도 실제 거리는 미반영 — 소요시간으로 근사)</p>
+    <div style="margin-top:12px"><button class="btn" onclick="savePrices()">요금표 저장</button></div>
+    <p class="muted" style="margin-top:8px">저장 후, 결제 등록에서 회원을 선택하면 금액이 자동으로 채워집니다.</p>
+  </div>
+  <div class="card">
+    <h2>추가수업(강의) 요금</h2>
+    <p class="muted" style="font-size:13px">정규수업 외 강의. 결제 등록의 '강의' 선택과 기타수업 탭에서 사용됩니다.</p>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>강의명</th><th>5회 요금</th><th>10회 요금</th><th></th></tr></thead>
+      <tbody>${db.lessons.map((l,i)=>`<tr>
+        <td><input value="${esc(l.name)}" onchange="setLesson(${i},'name',this.value)"></td>
+        <td><input type="number" style="max-width:120px" value="${l.price5||0}" onchange="setLesson(${i},'price5',this.value)"></td>
+        <td><input type="number" style="max-width:120px" value="${l.price10||0}" onchange="setLesson(${i},'price10',this.value)"></td>
+        <td><button class="btn danger sm" onclick="delLesson(${i})">삭제</button></td></tr>`).join("")
+        || `<tr><td colspan="4" class="muted">등록된 강의가 없습니다.</td></tr>`}
+      </tbody></table></div>
+    <div style="margin-top:12px"><button class="btn ghost" onclick="addLesson()">+ 강의 추가</button></div>
+  </div>
+  <div class="card">
+    <h2>경비율 설정 (세금 신고방법 비교용)</h2>
+    <p class="muted" style="font-size:13px">홈택스 → 조회/발급 → <b>기준·단순 경비율(업종코드) 조회</b>에서 본인 업종코드의 경비율을 확인해 입력하세요.
+      아래는 스포츠·여가 서비스업 <b>예시값</b>입니다.</p>
+    <div class="row">
+      <div><label>단순경비율 (%)</label><input type="number" step="0.1" id="taxSimple" value="${db.tax.simpleRate}"></div>
+      <div><label>기준경비율 (%)</label><input type="number" step="0.1" id="taxStd" value="${db.tax.standardRate}"></div>
+    </div>
+    <label>직전연도 수입금액 (원) <span class="muted">— 신규사업자면 0</span></label>
+    <input type="number" id="taxPrev" value="${db.tax.prevIncome}" style="max-width:220px">
+    <div style="margin-top:12px"><button class="btn" onclick="saveTax()">경비율 저장</button></div>
+    <p class="muted" style="font-size:12px;margin-top:8px">직전연도 수입이 스포츠·여가 서비스업 기준(계속 2,400만·신규 7,500만) 미만이면 단순경비율 적용 대상입니다.</p>
+  </div>
+  <div class="card">
+    <h2>월 고정비 (강사비 · 임대료 등)</h2>
+    <p class="muted" style="font-size:13px">매달 반복되는 비용. 손익분기·월 예상 순이익 계산과 재무 탭의 '이번달 고정비를 지출로 반영'에 사용됩니다.</p>
+    <div style="overflow-x:auto"><table>
+      <thead><tr><th>분류</th><th>내용</th><th>월 금액</th><th></th></tr></thead>
+      <tbody>${db.fixedCosts.map(c=>`<tr>
+        <td><select onchange="setFixed(${c.id},'category',this.value)">
+          ${EXP_CATS.map(x=>`<option ${x===c.category?"selected":""}>${x}</option>`).join("")}</select></td>
+        <td><input value="${esc(c.memo)}" onchange="setFixed(${c.id},'memo',this.value)" placeholder="예: 강사 홍길동"></td>
+        <td><input type="number" style="max-width:130px" value="${c.amount||0}" onchange="setFixed(${c.id},'amount',this.value)"></td>
+        <td><button class="btn danger sm" onclick="delFixed(${c.id})">삭제</button></td></tr>`).join("")
+        || `<tr><td colspan="4" class="muted">등록된 고정비가 없습니다.</td></tr>`}
+      </tbody></table></div>
+    <div style="margin-top:12px"><button class="btn ghost" onclick="addFixed()">+ 고정비 항목 추가</button>
+      <b style="margin-left:14px">월 고정비 합계: ${won(fixedTotal())}</b></div>
+  </div>
+  <div class="card">
+    <h2>☁ 구글 드라이브 연동 (여러 기기에서 보기)</h2>
+    <p class="muted" style="font-size:13px">구글 로그인하면 데이터가 <b>내 구글 드라이브(앱 전용 폴더)</b>에 저장돼 PC·폰 어디서나 같은 데이터를 봅니다. 저장할 때마다 자동 동기화됩니다.</p>
+    <label>구글 OAuth 클라이언트 ID</label>
+    <input id="gClientId" value="${lsGet('sportscenter.gClientId')}" placeholder="0000-xxxx.apps.googleusercontent.com" style="max-width:520px">
+    <div class="toolbar" style="margin-top:10px">
+      <button class="btn ghost" onclick="saveClientId()">ID 저장</button>
+      <button class="btn" onclick="driveSignIn()">구글 로그인</button>
+      <button class="btn ghost" onclick="driveSyncNow()">지금 불러오기</button>
+    </div>
+    <p class="muted" id="syncDetail" style="font-size:12px;margin-top:6px"></p>
+    <p class="muted" style="font-size:12px">설정 방법은 함께 드린 <b>구글드라이브_연동_안내서</b>를 참고하세요. 인터넷 연결이 필요합니다.</p>
+  </div>
+  <div class="card">
+    <h2>데이터 백업</h2>
+    <p class="muted">데이터는 이 브라우저(이 PC)에만 저장됩니다. 정기적으로 파일로 내보내 두세요.
+       브라우저 데이터를 지우면 사라집니다.</p>
+    <div class="toolbar">
+      <button class="btn" onclick="exportJson()">📥 파일로 내보내기</button>
+      <button class="btn ghost" onclick="document.getElementById('imp').click()">📤 파일에서 가져오기</button>
+      <input type="file" id="imp" accept="application/json" class="hidden">
+    </div>
+    <p class="muted">회원 ${db.members.length}명 · 결제 ${db.payments.length}건 · 노선 ${db.routes.length}개</p>
+  </div>`;
+  $("#imp").onchange = importJson;
+}
+function savePrices(){
+  document.querySelectorAll("[data-price]").forEach(el=>{ db.prices[el.dataset.price]=+el.value||0; });
+  db.busFee = +$("#busFee").value||0;
+  db.vehicleCount = Math.max(1, +$("#vehicleCount").value||2);
+  db.vehicleSeats = Math.max(1, +$("#vehicleSeats").value||12);
+  db.runMinutes = Math.max(5, +$("#runMinutes").value||40);
+  save(); alert("요금표를 저장했습니다.");
+}
+function saveTax(){
+  db.tax = { simpleRate:+$("#taxSimple").value||0, standardRate:+$("#taxStd").value||0, prevIncome:+$("#taxPrev").value||0 };
+  save(); alert("경비율을 저장했습니다. 세금 탭에서 신고방법 비교가 갱신됩니다.");
+}
+// ---- 월 고정비 편집 ----
+const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");
+function addFixed(){ db.fixedCosts.push({id:nid(), category:"강사비", memo:"", amount:0}); save(); renderBackup(); }
+function setFixed(id,k,v){
+  const c=db.fixedCosts.find(x=>x.id===id); if(!c) return;
+  c[k] = k==="amount" ? (+v||0) : v;
+  save(); if(k==="amount") renderBackup();   // 합계 갱신
+}
+function delFixed(id){ db.fixedCosts=db.fixedCosts.filter(x=>x.id!==id); save(); renderBackup(); }
+// ---- 추가수업(강의) 편집 ----
+function addLesson(){ db.lessons.push({name:"새 강의", price5:0, price10:0}); save(); renderBackup(); }
+function setLesson(i,k,v){
+  const l=db.lessons[i]; if(!l) return;
+  if(k==="name"){ const old=l.name, nw=v.trim()||l.name;
+    // 이름 변경 시 회원 참여명단·결제 태그도 함께 갱신
+    db.members.forEach(m=>{ if(m.lessons) m.lessons=m.lessons.map(x=>x===old?nw:x); });
+    db.payments.forEach(p=>{ if(p.lesson===old) p.lesson=nw; });
+    l.name=nw;
+  } else l[k]=+v||0;   // price5 / price10
+  save(); renderBackup();
+}
+function delLesson(i){
+  const l=db.lessons[i]; if(!l) return;
+  if(!confirm(`'${l.name}' 강의를 삭제할까요? 참여 명단에서도 제외됩니다. (결제 내역은 유지)`)) return;
+  db.members.forEach(m=>{ if(m.lessons) m.lessons=m.lessons.filter(x=>x!==l.name); });
+  db.lessons.splice(i,1); save(); renderBackup();
+}
+function exportJson(){
+  const blob = new Blob([JSON.stringify(db,null,2)],{type:"application/json"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=`스포츠센터백업_${today()}.json`; a.click();
+}
+function importJson(e){
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try{
+    const d=JSON.parse(r.result);
+    if(!Array.isArray(d.members)) throw 0;
+    if(!confirm("현재 데이터를 이 파일 내용으로 덮어씁니다. 계속할까요?")) return;
+    Object.assign(db, structuredClone(DEFAULTS), d); save(); render();
+    alert("가져오기 완료");
+  }catch{ alert("올바른 백업 파일이 아닙니다."); } };
+  r.readAsText(f);
+}
+
+// 취소 버튼이 삭제 버튼 숨김상태 유지하도록 dialog 닫힘 처리 불필요 — form dialog 기본 동작 사용
+render();
+updateSyncUI();
+
+// ---- self-check (콘솔에서 확인용) ----
+function demo(){
+  console.assert(won(12000)==="12,000원","won format");
+  console.assert(expiry({}).t==="ok","no end = ok");
+  const past=new Date(Date.now()-86400000).toISOString().slice(0,10);
+  console.assert(expiry({end:past}).t==="exp","past = exp");
+  console.log("self-check ok");
+}
+</script>
+
+<!-- 구글 드라이브 동기화용 (인터넷 연결 시에만 로드; 오프라인에선 무시되고 로컬로 동작) -->
+<script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+<script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
